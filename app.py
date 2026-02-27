@@ -94,7 +94,10 @@ def create_admin(email, password):
 
 
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+    except Exception as e:
+        print(f"Warning: db.create_all() failed: {e}")
 
 
 # --- Placeholder history (full implementation in phase 5)
@@ -206,10 +209,16 @@ app.register_blueprint(admin_bp)
 
 
 # --- Main app routes (index, upload, status, download) - will be refactored to use Job in phase 2
-from main import SomaliSubtitleGenerator
 import threading
 
-generator = SomaliSubtitleGenerator()
+_generator = None
+
+def get_generator():
+    global _generator
+    if _generator is None:
+        from main import SomaliSubtitleGenerator
+        _generator = SomaliSubtitleGenerator()
+    return _generator
 
 
 def process_audio_file(relative_path, job_id=None):
@@ -234,7 +243,7 @@ def process_audio_file(relative_path, job_id=None):
         processing_status['progress'] = 2
         processing_status['message'] = 'Analyzing media duration...'
 
-        segments = generator.generate_subtitles(
+        segments = get_generator().generate_subtitles(
             file_path, output_path, progress_cb=on_progress)
 
         processing_status['progress'] = 100
