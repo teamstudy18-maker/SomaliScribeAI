@@ -21,6 +21,8 @@ class SomaliSubtitleGenerator:
             print(f"Loaded {len(self.metadata_df)} audio entries from dataset")
         except Exception as e:
             print(f"Error loading dataset: {e}")
+            self.metadata_df = pd.DataFrame(columns=['file_name', 'transcription'])
+            self.train_df = pd.DataFrame()
             
     def audio_to_text_with_reference(self, audio_path, use_reference=True):
         """Convert audio to text using the dataset as reference."""
