@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}SomaliScribe AI – Somali Subtitle Generator{% endblock %}
+{% block content %}
+<section class="max-w-4xl mx-auto px-4 pt-20 pb-16 text-center">
+    <h1 class="text-5xl sm:text-6xl font-extrabold leading-tight mb-6">
+        <span class="text-white">Preserve &amp; Share</span><br>
+        <span class="bg-gradient-to-r from-accent to-purple-400 bg-clip-text text-transparent">Somali Voices with AI</span>
+    </h1>
+    <p class="text-gray-400 text-lg max-w-2xl mx-auto mb-10">
+        Automatically transcribe and subtitle audio and video content in Somali.
+        Perfect for content creators, educators, and archivists.
+    </p>
+    <div class="flex items-center justify-center gap-4">
+        <a href="{{ url_for('create') }}" class="btn-accent text-white px-8 py-3 rounded-xl font-semibold transition glow-purple">Start Creating</a>
+        <a href="#features" class="border border-gray-600 text-gray-300 px-8 py-3 rounded-xl font-semibold hover:border-gray-400 hover:text-white transition">Learn More</a>
+    </div>
+</section>
+
+<section id="features" class="max-w-5xl mx-auto px-4 pb-20">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="card-dark rounded-2xl p-6">
+            <div class="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center mb-4">
+                <i class="fas fa-microphone-alt text-accent-light text-xl"></i>
+            </div>
+            <h3 class="text-white font-bold text-lg mb-2">Accurate Somali ASR</h3>
+            <p class="text-gray-400 text-sm leading-relaxed">Powered by advanced models to understand various Somali dialects and accents with high precision.</p>
+        </div>
+        <div class="card-dark rounded-2xl p-6">
+            <div class="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center mb-4">
+                <i class="fas fa-cloud-upload-alt text-accent-light text-xl"></i>
+            </div>
+            <h3 class="text-white font-bold text-lg mb-2">Easy Upload &amp; Export</h3>
+            <p class="text-gray-400 text-sm leading-relaxed">Drag and drop MP3, MP4, or WAV files. Export industry-standard SRT and VTT subtitle files instantly.</p>
+        </div>
+        <div class="card-dark rounded-2xl p-6">
+            <div class="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center mb-4">
+                <i class="fas fa-edit text-accent-light text-xl"></i>
+            </div>
+            <h3 class="text-white font-bold text-lg mb-2">Visual Editor</h3>
+            <p class="text-gray-400 text-sm leading-relaxed">Fine-tune your subtitles with our built-in timeline editor. Sync text perfectly with your video.</p>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% block title %}Editor – {{ job.original_filename }} – SomaliScribe AI{% endblock %}
+{% block extra_css %}
+<style>
+    .seg-row { transition: background .15s; }
+    .seg-row:hover { background: rgba(124,58,237,.08); }
+    .seg-row.active { background: rgba(124,58,237,.15); border-left: 3px solid #7c3aed; }
+    .seg-input { background: #0b0f19; border: 1px solid rgba(255,255,255,.1); color: #e5e7eb; }
+    .seg-input:focus { border-color: #7c3aed; outline: none; box-shadow: 0 0 0 2px rgba(124,58,237,.25); }
+    .toast { position: fixed; top: 80px; right: 24px; z-index: 100; animation: slideIn .3s ease; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-white">Subtitle Editor</h1>
+            <p class="text-gray-500 text-sm mt-1"><i class="fas fa-file mr-1"></i>{{ job.original_filename }}</p>
+        </div>
+        <a href="{{ url_for('history') if current_user.is_authenticated else url_for('create') }}" class="text-gray-400 hover:text-white transition text-sm">
+            <i class="fas fa-arrow-left mr-1"></i>{{ 'Back to History' if current_user.is_authenticated else 'Back to Upload' }}
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div class="lg:col-span-3 space-y-4">
+            <div class="card-dark rounded-2xl overflow-hidden relative">
+                {% if job.media_type == 'video' %}
+                <video id="media" class="w-full" controls preload="metadata">
+                    <source src="{{ url_for('job_media', job_id=job.id) }}" type="video/mp4">
+                </video>
+                {% else %}
+                <div class="p-6 pb-2">
+                    <div class="w-full h-32 rounded-xl bg-dark-900 flex items-center justify-center mb-3">
+                        <i class="fas fa-headphones text-4xl text-accent/40"></i>
+                    </div>
+                    <audio id="media" class="w-full" controls preload="metadata">
+                        <source src="{{ url_for('job_media', job_id=job.id) }}">
+                    </audio>
+                </div>
+                {% endif %}
+                <div id="liveCaption" class="{% if job.media_type == 'video' %}absolute bottom-14 left-0 right-0{% else %}px-6 pb-4{% endif %} text-center pointer-events-none">
+                    <span id="liveCaptionText" class="bg-black/70 text-white px-4 py-1.5 rounded-lg text-sm inline-block max-w-[90%] min-h-[1.5rem]"></span>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                <button id="btnSave" class="btn-accent text-white px-5 py-2 rounded-xl text-sm font-medium transition"><i class="fas fa-save mr-1.5"></i>Save</button>
+                <button id="btnMerge" class="bg-dark-600 border border-white/10 text-gray-300 px-4 py-2 rounded-xl text-sm hover:bg-dark-500 transition"><i class="fas fa-compress-alt mr-1.5"></i>Merge</button>
+                <button id="btnSplit" class="bg-dark-600 border border-white/10 text-gray-300 px-4 py-2 rounded-xl text-sm hover:bg-dark-500 transition"><i class="fas fa-cut mr-1.5"></i>Split</button>
+                <button id="btnDelete" class="bg-dark-600 border border-white/10 text-red-400 px-4 py-2 rounded-xl text-sm hover:bg-red-900/30 transition"><i class="fas fa-trash mr-1.5"></i>Delete</button>
+                <a href="{{ url_for('export_subtitles', job_id=job.id) }}?format=srt" class="bg-dark-600 border border-white/10 text-green-400 px-4 py-2 rounded-xl text-sm hover:bg-green-900/20 transition inline-flex items-center"><i class="fas fa-download mr-1.5"></i>SRT</a>
+                <a href="{{ url_for('export_subtitles', job_id=job.id) }}?format=vtt" class="bg-dark-600 border border-white/10 text-green-400 px-4 py-2 rounded-xl text-sm hover:bg-green-900/20 transition inline-flex items-center"><i class="fas fa-download mr-1.5"></i>VTT</a>
+                <a href="{{ url_for('download_burned', job_id=job.id) }}" class="bg-dark-600 border border-white/10 text-blue-400 px-4 py-2 rounded-xl text-sm hover:bg-blue-900/20 transition inline-flex items-center"><i class="fas fa-video mr-1.5"></i>Download Video with Subtitles</a>
+            </div>
+
+            <div class="card-dark rounded-2xl p-4 mt-2">
+                <h3 class="text-white font-semibold text-sm mb-3"><i class="fas fa-palette mr-2 text-accent-light"></i>Caption Style</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Font Family</label>
+                        <select id="captionFont" class="w-full bg-dark-900 border border-white/10 text-gray-200 text-xs rounded-lg px-2 py-1.5 focus:ring-accent focus:border-accent outline-none">
+                            <option value="Inter, system-ui, sans-serif">Inter (Default)</option>
+                            <option value="Arial, sans-serif">Arial</option>
+                            <option value="Georgia, serif">Georgia</option>
+                            <option value="'Courier New', monospace">Courier New</option>
+                            <option value="Verdana, sans-serif">Verdana</option>
+                            <option value="'Times New Roman', serif">Times New Roman</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Font Size</label>
+                        <select id="captionSize" class="w-full bg-dark-900 border border-white/10 text-gray-200 text-xs rounded-lg px-2 py-1.5 focus:ring-accent focus:border-accent outline-none">
+                            <option value="12px">Small</option>
+                            <option value="14px" selected>Medium</option>
+                            <option value="18px">Large</option>
+                            <option value="24px">Extra Large</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Text Color</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" id="captionColor" value="#ffffff" class="w-8 h-8 rounded border-0 bg-transparent cursor-pointer">
+                            <span id="captionColorHex" class="text-xs text-gray-400">#ffffff</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Background</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" id="captionBg" value="#000000" class="w-8 h-8 rounded border-0 bg-transparent cursor-pointer">
+                            <select id="captionBgOpacity" class="bg-dark-900 border border-white/10 text-gray-200 text-xs rounded-lg px-2 py-1.5 focus:ring-accent focus:border-accent outline-none">
+                                <option value="0.9">90%</option>
+                                <option value="0.7" selected>70%</option>
+                                <option value="0.5">50%</option>
+                                <option value="0.3">30%</option>
+                                <option value="0">None</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2">
+            <div class="card-dark rounded-2xl p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-white font-semibold"><i class="fas fa-list-ol mr-2 text-accent-light"></i>Segments</h2>
+                    <span id="segCount" class="text-xs text-gray-500"></span>
+                </div>
+                <div id="segmentsList" class="space-y-1 max-h-[65vh] overflow-y-auto pr-1"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast hidden">
+    <div class="bg-green-900/80 border border-green-700 text-green-300 px-5 py-3 rounded-xl text-sm shadow-lg"><i class="fas fa-check-circle mr-2"></i><span id="toastMsg"></span></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const jobId = {{ job.id }};
+    let segments = {{ (job.segments or []) | tojson }};
+    const media = document.getElementById('media');
+    const segmentsList = document.getElementById('segmentsList');
+    const captionEl = document.getElementById('liveCaptionText');
+
+    function secToTs(n) {
+        n = Number(n) || 0;
+        const h = Math.floor(n/3600), m = Math.floor((n%3600)/60), s = Math.floor(n%60), ms = Math.round((n%1)*1000);
+        return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+'.'+String(ms).padStart(3,'0');
+    }
+    function tsToSec(ts) {
+        const p = String(ts).trim().replace(',','.').split(/[:\.]/);
+        if (p.length >= 4) return (parseInt(p[0])||0)*3600 + (parseInt(p[1])||0)*60 + (parseInt(p[2])||0) + (parseInt(p[3])||0)/1000;
+        if (p.length === 3) return (parseInt(p[0])||0)*3600 + (parseInt(p[1])||0)*60 + (parseFloat(p[2])||0);
+        return 0;
+    }
+    function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function norm(s) {
+        const st = typeof s.start_sec==='number'? s.start_sec : (typeof s.start==='number'? s.start : tsToSec(s.start||'0'));
+        const en = typeof s.end_sec==='number'? s.end_sec : (typeof s.end==='number'? s.end : tsToSec(s.end||'0'));
+        return { start: st, end: en, text: (s.text||'').trim() };
+    }
+    segments = segments.map(norm);
+
+    function render() {
+        document.getElementById('segCount').textContent = segments.length + ' segments';
+        segmentsList.innerHTML = segments.map((seg, i) =>
+            '<div class="seg-row rounded-lg p-2.5 cursor-pointer" data-i="'+i+'">' +
+            '<div class="flex items-start gap-2">' +
+            '<input type="checkbox" class="seg-cb mt-1 w-4 h-4 rounded bg-dark-900 border-gray-600 text-accent focus:ring-accent" data-i="'+i+'">' +
+            '<div class="flex-1 min-w-0 space-y-1.5">' +
+            '<div class="flex gap-2"><input type="text" class="seg-start seg-input rounded-lg px-2 py-1 text-xs w-[105px]" value="'+esc(secToTs(seg.start))+'">' +
+            '<input type="text" class="seg-end seg-input rounded-lg px-2 py-1 text-xs w-[105px]" value="'+esc(secToTs(seg.end))+'"></div>' +
+            '<textarea class="seg-text seg-input rounded-lg px-2 py-1 text-sm w-full resize-none" rows="2">'+esc(seg.text)+'</textarea>' +
+            '</div></div></div>'
+        ).join('');
+        bind();
+        if (typeof refreshTrack === 'function') refreshTrack();
+    }
+
+    function bind() {
+        segmentsList.querySelectorAll('.seg-row').forEach(row => {
+            const i = +row.dataset.i;
+            row.addEventListener('click', e => {
+                if (e.target.matches('input,textarea')) return;
+                if (media && segments[i]) media.currentTime = segments[i].start;
+            });
+            const st = row.querySelector('.seg-start'), en = row.querySelector('.seg-end'), tx = row.querySelector('.seg-text');
+            st.addEventListener('change', () => { segments[i].start = tsToSec(st.value); });
+            en.addEventListener('change', () => { segments[i].end = tsToSec(en.value); });
+            tx.addEventListener('input', () => { segments[i].text = tx.value.trim(); });
+        });
+    }
+
+    function sync() {
+        segmentsList.querySelectorAll('.seg-row').forEach(row => {
+            const i = +row.dataset.i;
+            if (!segments[i]) return;
+            segments[i].start = tsToSec(row.querySelector('.seg-start').value);
+            segments[i].end = tsToSec(row.querySelector('.seg-end').value);
+            segments[i].text = row.querySelector('.seg-text').value.trim();
+        });
+    }
+
+    function getChecked() {
+        const idx = [];
+        segmentsList.querySelectorAll('.seg-cb:checked').forEach(cb => idx.push(+cb.dataset.i));
+        return idx.sort((a,b)=>a-b);
+    }
+
+    function toast(msg) {
+        const t = document.getElementById('toast'), m = document.getElementById('toastMsg');
+        m.textContent = msg; t.classList.remove('hidden');
+        setTimeout(() => t.classList.add('hidden'), 2500);
+    }
+
+    const captionFont = document.getElementById('captionFont');
+    const captionSize = document.getElementById('captionSize');
+    const captionColor = document.getElementById('captionColor');
+    const captionColorHex = document.getElementById('captionColorHex');
+    const captionBg = document.getElementById('captionBg');
+    const captionBgOpacity = document.getElementById('captionBgOpacity');
+
+    function hexToRgb(hex) {
+        const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+        return {r, g, b};
+    }
+    function applyCaptionStyle() {
+        captionEl.style.fontFamily = captionFont.value;
+        captionEl.style.fontSize = captionSize.value;
+        captionEl.style.color = captionColor.value;
+        captionColorHex.textContent = captionColor.value;
+        const bg = hexToRgb(captionBg.value);
+        captionEl.style.background = 'rgba('+bg.r+','+bg.g+','+bg.b+','+captionBgOpacity.value+')';
+    }
+    [captionFont, captionSize, captionColor, captionBg, captionBgOpacity].forEach(el => el.addEventListener('change', applyCaptionStyle));
+    captionColor.addEventListener('input', applyCaptionStyle);
+    captionBg.addEventListener('input', applyCaptionStyle);
+    applyCaptionStyle();
+
+    media.addEventListener('timeupdate', () => {
+        const t = media.currentTime;
+        let caption = '';
+        segmentsList.querySelectorAll('.seg-row').forEach(row => {
+            const i = +row.dataset.i, seg = segments[i];
+            if (!seg) return;
+            const active = t >= seg.start && t <= seg.end;
+            row.classList.toggle('active', active);
+            if (active) caption = seg.text;
+        });
+        captionEl.textContent = caption;
+    });
+
+    /* ---- Fullscreen subtitles via native VTT <track> ---- */
+    let refreshTrack = function(){};
+    if (media.tagName === 'VIDEO') {
+        const trackEl = document.createElement('track');
+        trackEl.kind = 'subtitles';
+        trackEl.label = 'Somali';
+        trackEl.srclang = 'so';
+        media.appendChild(trackEl);
+        let trackUrl = null;
+
+        refreshTrack = function() {
+            if (trackUrl) URL.revokeObjectURL(trackUrl);
+            let vtt = 'WEBVTT\n\n';
+            segments.forEach(function(seg) {
+                vtt += secToTs(seg.start) + ' --> ' + secToTs(seg.end) + '\n';
+                vtt += (seg.text || '') + '\n\n';
+            });
+            trackUrl = URL.createObjectURL(new Blob([vtt], {type: 'text/vtt'}));
+            trackEl.src = trackUrl;
+            const fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+            trackEl.track.mode = fs ? 'showing' : 'hidden';
+        };
+
+        function onFsChange() {
+            const fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+            trackEl.track.mode = fs ? 'showing' : 'hidden';
+            document.getElementById('liveCaption').style.display = fs ? 'none' : '';
+        }
+        document.addEventListener('fullscreenchange', onFsChange);
+        document.addEventListener('webkitfullscreenchange', onFsChange);
+        refreshTrack();
+    }
+
+    document.getElementById('btnSave').addEventListener('click', () => {
+        sync();
+        refreshTrack();
+        const payload = segments.map(s => ({ start: s.start, end: s.end, start_sec: s.start, end_sec: s.end, text: s.text }));
+        fetch('/editor/'+jobId+'/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({segments:payload}) })
+            .then(r => r.json()).then(d => { if (d.ok) toast('Changes saved!'); else toast('Save failed.'); }).catch(()=>toast('Save failed.'));
+    });
+
+    document.getElementById('btnMerge').addEventListener('click', () => {
+        sync(); const idx = getChecked();
+        if (idx.length < 2) { alert('Select at least 2 segments.'); return; }
+        for (let k=1; k<idx.length; k++) if (idx[k]!==idx[k-1]+1) { alert('Select consecutive segments.'); return; }
+        const merged = { start: segments[idx[0]].start, end: segments[idx[idx.length-1]].end, text: idx.map(i=>segments[i].text).join(' ') };
+        segments = [...segments.slice(0,idx[0]), merged, ...segments.slice(idx[idx.length-1]+1)];
+        render();
+    });
+
+    document.getElementById('btnSplit').addEventListener('click', () => {
+        sync(); const t = media ? media.currentTime : 0;
+        const idx = segments.findIndex(s => t >= s.start && t <= s.end);
+        if (idx < 0) { alert('Position playhead inside a segment.'); return; }
+        const s = segments[idx];
+        segments = [...segments.slice(0,idx), {start:s.start, end:t, text:s.text}, {start:t, end:s.end, text:s.text}, ...segments.slice(idx+1)];
+        render();
+    });
+
+    document.getElementById('btnDelete').addEventListener('click', () => {
+        sync(); const idx = getChecked();
+        if (!idx.length) { alert('Select segments to delete.'); return; }
+        const set = new Set(idx);
+        segments = segments.filter((_,i) => !set.has(i));
+        render();
+    });
+
+    render();
+})();
+</script>
+{% endblock %}

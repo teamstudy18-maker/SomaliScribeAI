@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}Upload Media – SomaliScribe AI{% endblock %}
+{% block extra_css %}
+<style>
+    .upload-area { border: 2px dashed rgba(124,58,237,.4); transition: all .3s; }
+    .upload-area:hover, .upload-area.dragover { border-color: #7c3aed; background: rgba(124,58,237,.06); }
+    .progress-bar { transition: width .3s ease; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .animate-spin { animation: spin 1s linear infinite; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-12">
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-white mb-2">Upload Media</h1>
+        <p class="text-gray-400">Supports MP3, WAV, MP4, MKV, MOV, WEBM &amp; more (Max 500 MB)</p>
+    </div>
+
+    <div class="card-dark rounded-2xl p-8">
+        <div class="upload-area rounded-xl p-10 text-center cursor-pointer" id="uploadArea">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-accent/20 flex items-center justify-center">
+                <i class="fas fa-cloud-upload-alt text-accent-light text-2xl"></i>
+            </div>
+            <h3 class="text-white font-semibold text-lg mb-1">Drag &amp; Drop your file here</h3>
+            <p class="text-gray-500 text-sm mb-5">or click to browse from your computer</p>
+            <input type="file" id="fileInput" accept=".wav,.mp3,.m4a,.flac,.ogg,.aac,.mp4,.mkv,.avi,.mov,.webm" class="hidden">
+            <button type="button" id="chooseFileBtn" class="btn-accent text-white px-6 py-2.5 rounded-xl font-medium transition">
+                Select File
+            </button>
+            <p class="text-gray-600 text-xs mt-3">Audio: WAV, MP3, M4A, FLAC, OGG, AAC &nbsp;·&nbsp; Video: MP4, MKV, AVI, MOV, WEBM</p>
+        </div>
+
+        <div id="fileInfo" class="hidden mt-5 p-4 rounded-xl bg-dark-500/50 border border-white/10">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-accent/20 flex items-center justify-center">
+                        <i id="fileIcon" class="fas fa-file-audio text-accent-light"></i>
+                    </div>
+                    <div>
+                        <span id="fileName" class="font-medium text-white text-sm"></span>
+                        <span id="fileSize" class="block text-xs text-gray-500"></span>
+                    </div>
+                </div>
+                <button type="button" id="removeFile" class="text-gray-500 hover:text-red-400 transition"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="mediaMeta" class="hidden mt-3 pt-3 border-t border-white/5 grid grid-cols-3 gap-3 text-center">
+                <div>
+                    <p class="text-gray-500 text-xs">Duration</p>
+                    <p id="metaDuration" class="text-white font-semibold text-sm">—</p>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-xs">Chunks (4 s)</p>
+                    <p id="metaChunks" class="text-accent-light font-semibold text-sm">—</p>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-xs">Est. Time</p>
+                    <p id="metaEst" class="text-green-400 font-semibold text-sm">—</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-6">
+            <button id="uploadBtn" type="button" disabled class="btn-accent text-white px-10 py-3 rounded-xl font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed glow-purple">
+                <i class="fas fa-wand-magic-sparkles mr-2"></i>Generate Subtitles
+            </button>
+        </div>
+
+        <section id="progress-section" class="hidden mt-8">
+            <div class="rounded-xl bg-dark-500/50 border border-white/10 p-5">
+                <div class="flex items-center gap-3 mb-4">
+                    <i class="fas fa-cog animate-spin text-accent-light"></i>
+                    <span class="text-white font-medium">Processing...</span>
+                </div>
+                <div class="flex justify-between text-xs text-gray-400 mb-2">
+                    <span id="progressMessage">Initializing...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="w-full bg-dark-900 rounded-full h-2">
+                    <div id="progressBar" class="progress-bar bg-accent h-2 rounded-full" style="width:0%"></div>
+                </div>
+                <p id="currentFile" class="text-xs text-gray-500 mt-2"></p>
+            </div>
+        </section>
+
+        <section id="error-section" class="hidden mt-8">
+            <div class="rounded-xl bg-red-900/30 border border-red-800/50 p-5">
+                <h3 class="text-red-300 font-semibold mb-1"><i class="fas fa-exclamation-triangle mr-2"></i>Error</h3>
+                <p id="errorMessage" class="text-red-400 text-sm"></p>
+                <button id="retryBtn" type="button" class="mt-3 text-sm bg-red-800/50 text-red-300 px-4 py-1.5 rounded-lg hover:bg-red-800 transition">Try Again</button>
+            </div>
+        </section>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4 mt-6">
+        <div class="card-dark rounded-xl p-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-accent/20 flex items-center justify-center shrink-0">
+                <i class="fas fa-headphones text-accent-light"></i>
+            </div>
+            <div>
+                <p class="text-white font-semibold text-sm">Audio</p>
+                <p class="text-gray-500 text-xs">MP3, WAV, M4A, FLAC, OGG, AAC</p>
+            </div>
+        </div>
+        <div class="card-dark rounded-xl p-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center shrink-0">
+                <i class="fas fa-film text-red-400"></i>
+            </div>
+            <div>
+                <p class="text-white font-semibold text-sm">Video</p>
+                <p class="text-gray-500 text-xs">MP4, MKV, AVI, MOV, WEBM</p>
+            </div>
+        </div>
+        <div class="card-dark rounded-xl p-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center shrink-0">
+                <i class="fas fa-weight-hanging text-green-400"></i>
+            </div>
+            <div>
+                <p class="text-white font-semibold text-sm">Max Size</p>
+                <p class="text-gray-500 text-xs">Up to 500 MB</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    let selectedFile = null;
+    let mediaDuration = null;
+    const CHUNK_SEC = 4;
+    const MAX_SIZE = 500 * 1024 * 1024;
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const removeFileBtn = document.getElementById('removeFile');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const progressSection = document.getElementById('progress-section');
+    const errorSection = document.getElementById('error-section');
+    const progressBar = document.getElementById('progressBar');
+    const progressPercent = document.getElementById('progressPercent');
+    const progressMessage = document.getElementById('progressMessage');
+    const currentFile = document.getElementById('currentFile');
+    const errorMessage = document.getElementById('errorMessage');
+    const retryBtn = document.getElementById('retryBtn');
+    const mediaMeta = document.getElementById('mediaMeta');
+    const metaDuration = document.getElementById('metaDuration');
+    const metaChunks = document.getElementById('metaChunks');
+    const metaEst = document.getElementById('metaEst');
+    const allowed = ['.wav','.mp3','.m4a','.flac','.ogg','.aac','.mp4','.mkv','.avi','.mov','.webm'];
+    const videoExts = ['.mp4','.mkv','.avi','.mov','.webm'];
+
+    function openDialog() { fileInput.value=''; fileInput.click(); }
+    uploadArea.addEventListener('click', e => { if (!e.target.closest('#chooseFileBtn')) openDialog(); });
+    document.getElementById('chooseFileBtn').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openDialog(); });
+    fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+    uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+    uploadArea.addEventListener('drop', e => { e.preventDefault(); uploadArea.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+
+    function formatSize(b) { if (b>1e6) return (b/1e6).toFixed(1)+' MB'; return (b/1e3).toFixed(0)+' KB'; }
+
+    function formatDuration(sec) {
+        if (!sec || !isFinite(sec)) return '—';
+        const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = Math.floor(sec%60);
+        if (h > 0) return h+'h '+m+'m '+s+'s';
+        if (m > 0) return m+'m '+s+'s';
+        return s+'s';
+    }
+
+    function detectDuration(file) {
+        return new Promise(resolve => {
+            const url = URL.createObjectURL(file);
+            const ext = '.'+file.name.split('.').pop().toLowerCase();
+            const el = videoExts.includes(ext) ? document.createElement('video') : document.createElement('audio');
+            el.preload = 'metadata';
+            el.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(el.duration); };
+            el.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+            el.src = url;
+        });
+    }
+
+    function showMediaMeta(dur) {
+        mediaDuration = dur;
+        if (!dur || !isFinite(dur)) { mediaMeta.classList.add('hidden'); return; }
+        const chunks = Math.ceil(dur / CHUNK_SEC);
+        const estSec = chunks * 6 + 10;
+        metaDuration.textContent = formatDuration(dur);
+        metaChunks.textContent = chunks;
+        metaEst.textContent = '~' + formatDuration(estSec);
+        mediaMeta.classList.remove('hidden');
+    }
+
+    async function handleFile(file) {
+        const ext = '.'+file.name.split('.').pop().toLowerCase();
+        if (!allowed.includes(ext)) { showError('Unsupported format. Use MP3, WAV, MP4, MKV, AVI, MOV, WEBM.'); return; }
+        if (file.size > MAX_SIZE) { showError('File too large. Max 500 MB.'); return; }
+        selectedFile = file;
+        fileName.textContent = file.name;
+        fileSize.textContent = formatSize(file.size);
+        document.getElementById('fileIcon').className = videoExts.includes(ext) ? 'fas fa-film text-red-400' : 'fas fa-headphones text-accent-light';
+        fileInfo.classList.remove('hidden');
+        uploadBtn.disabled = false;
+        hideStatus();
+        showMediaMeta(null);
+        const dur = await detectDuration(file);
+        showMediaMeta(dur);
+    }
+
+    removeFileBtn.addEventListener('click', e => { e.stopPropagation(); resetFile(); });
+
+    function resetFile() {
+        selectedFile = null; mediaDuration = null; fileInput.value = '';
+        fileInfo.classList.add('hidden');
+        mediaMeta.classList.add('hidden');
+        uploadBtn.disabled = true;
+        hideStatus();
+    }
+
+    uploadBtn.addEventListener('click', e => {
+        e.preventDefault();
+        if (!selectedFile) { showError('Please select a file first.'); return; }
+        const fd = new FormData(); fd.append('file', selectedFile);
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload');
+        xhr.upload.addEventListener('progress', ev => {
+            if (ev.lengthComputable) { const p = Math.round(ev.loaded/ev.total*100); setProgress(p, 'Uploading... '+p+'%'); }
+        });
+        xhr.addEventListener('load', () => {
+            let data; try { data = JSON.parse(xhr.responseText); } catch(e) { showError('Invalid server response.'); return; }
+            if (xhr.status !== 200) { showError(data.error || 'Upload failed.'); return; }
+            setProgress(0, 'Processing...'); uploadBtn.disabled = true;
+            checkProgress();
+        });
+        xhr.addEventListener('error', () => showError('Network error.'));
+        showProgressUI(); setProgress(0, 'Uploading...'); uploadBtn.disabled = true;
+        xhr.send(fd);
+    });
+
+    async function checkProgress() {
+        try {
+            const r = await fetch('/status'); const s = await r.json();
+            setProgress(s.progress, s.message || 'Processing...');
+            if (s.current_file) currentFile.textContent = s.current_file;
+            if (s.is_processing) { setTimeout(checkProgress, 1000); return; }
+            if (s.error) { showError(s.error); uploadBtn.disabled = false; return; }
+            if (s.job_id) { setProgress(100, 'Done! Opening editor...'); window.location.href = '/editor/' + s.job_id; return; }
+            if (s.output_file) { setProgress(100, 'Done! Downloading...'); window.location.href = '/download/' + encodeURIComponent(s.output_file); uploadBtn.disabled = false; }
+        } catch(e) { setTimeout(checkProgress, 2000); }
+    }
+
+    function setProgress(pct, msg) { progressBar.style.width=pct+'%'; progressPercent.textContent=pct+'%'; progressMessage.textContent=msg; }
+    function showProgressUI() { hideStatus(); progressSection.classList.remove('hidden'); }
+    function showError(msg) { hideStatus(); errorSection.classList.remove('hidden'); errorMessage.textContent=msg; uploadBtn.disabled=false; }
+    function hideStatus() { progressSection.classList.add('hidden'); errorSection.classList.add('hidden'); }
+    retryBtn.addEventListener('click', () => { resetFile(); });
+})();
+</script>
+{% endblock %}

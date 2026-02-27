@@ -1,0 +1,23 @@
+databases:
+  - name: somali-subtitles-db
+    plan: free
+    databaseName: somali_subtitles
+
+services:
+  - type: web
+    name: somaliscribe
+    runtime: python
+    plan: free
+    buildCommand: |
+      pip install -r requirements.txt
+      flask --app app init-db
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --timeout 300 --workers 2 app:app
+    envVars:
+      - key: DATABASE_URI
+        fromDatabase:
+          name: somali-subtitles-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.11.9

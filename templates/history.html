@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}My History – SomaliScribe AI{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-10">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-white"><i class="fas fa-clock-rotate-left mr-2 text-accent-light"></i>My History</h1>
+        <a href="{{ url_for('create') }}" class="btn-accent text-white px-5 py-2 rounded-xl text-sm font-medium transition"><i class="fas fa-plus mr-1.5"></i>New</a>
+    </div>
+    {% if jobs %}
+    <div class="space-y-3">
+        {% for job in jobs %}
+        <div class="card-dark rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg {% if job.media_type == 'video' %}bg-red-500/20{% else %}bg-accent/20{% endif %} flex items-center justify-center shrink-0">
+                    <i class="fas {% if job.media_type == 'video' %}fa-film text-red-400{% else %}fa-headphones text-accent-light{% endif %}"></i>
+                </div>
+                <div>
+                    <p class="text-white font-medium text-sm">{{ job.original_filename }}</p>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <span class="text-xs text-gray-500">{{ job.media_type }}</span>
+                        <span class="text-xs text-gray-600">&middot;</span>
+                        <span class="text-xs text-gray-500">{{ job.created_at.strftime('%b %d, %Y %H:%M') if job.created_at else '' }}</span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase
+                            {% if job.status == 'done' %}bg-green-900/50 text-green-400 border border-green-800/50
+                            {% elif job.status == 'failed' %}bg-red-900/50 text-red-400 border border-red-800/50
+                            {% else %}bg-gray-800 text-gray-400 border border-gray-700{% endif %}">{{ job.status }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 text-sm shrink-0">
+                {% if job.status == 'done' %}
+                <a href="{{ url_for('editor', job_id=job.id) }}" class="btn-accent text-white px-3 py-1.5 rounded-lg text-xs transition"><i class="fas fa-edit mr-1"></i>Edit</a>
+                <a href="{{ url_for('export_subtitles', job_id=job.id) }}?format=srt" class="bg-dark-500 border border-white/10 text-gray-300 px-3 py-1.5 rounded-lg text-xs hover:text-white transition">SRT</a>
+                <a href="{{ url_for('export_subtitles', job_id=job.id) }}?format=vtt" class="bg-dark-500 border border-white/10 text-gray-300 px-3 py-1.5 rounded-lg text-xs hover:text-white transition">VTT</a>
+                {% if job.media_type == 'video' %}
+                <a href="{{ url_for('download_burned', job_id=job.id) }}" class="bg-dark-500 border border-white/10 text-purple-400 px-3 py-1.5 rounded-lg text-xs hover:text-purple-300 transition" target="_blank" download>Burn-in</a>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card-dark rounded-2xl p-12 text-center">
+        <i class="fas fa-inbox text-4xl text-gray-600 mb-4"></i>
+        <p class="text-gray-400 mb-4">No projects yet.</p>
+        <a href="{{ url_for('create') }}" class="btn-accent text-white px-6 py-2.5 rounded-xl font-medium transition">Start Creating</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

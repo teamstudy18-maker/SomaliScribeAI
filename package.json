@@ -1,0 +1,21 @@
+{
+  "dependencies": {
+    "@tailwindcss/vite": "^4.2.0"
+  },
+  "name": "ai-somali-subtitle-generator",
+  "version": "1.0.0",
+  "description": "An AI-powered web app that generates Somali subtitles from audio and video files. Upload media, edit subtitles in the browser, and export SRT, VTT, or a video with burned-in captions.",
+  "main": "index.js",
+  "devDependencies": {
+    "autoprefixer": "^10.4.24",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.2.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
