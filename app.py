@@ -14,10 +14,13 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+_db_uri = os.environ.get(
     'DATABASE_URI',
     'postgresql://postgres:postgres@localhost:5432/somali_subtitles'
 )
+if _db_uri.startswith('postgres://'):
+    _db_uri = _db_uri.replace('postgres://', 'postgresql://', 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = _db_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
@@ -96,8 +99,10 @@ def create_admin(email, password):
 with app.app_context():
     try:
         db.create_all()
+        print("Database tables created successfully.")
     except Exception as e:
-        print(f"Warning: db.create_all() failed: {e}")
+        print(f"WARNING: db.create_all() failed: {e}")
+        print(f"DATABASE_URI starts with: {_db_uri[:30]}...")
 
 
 # --- Placeholder history (full implementation in phase 5)
