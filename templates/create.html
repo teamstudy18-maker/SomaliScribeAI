@@ -43,14 +43,18 @@
                 </div>
                 <button type="button" id="removeFile" class="text-gray-500 hover:text-red-400 transition"><i class="fas fa-times"></i></button>
             </div>
-            <div id="mediaMeta" class="hidden mt-3 pt-3 border-t border-white/5 grid grid-cols-3 gap-3 text-center">
+            <div id="mediaMeta" class="hidden mt-3 pt-3 border-t border-white/5 grid grid-cols-4 gap-3 text-center">
                 <div>
                     <p class="text-gray-500 text-xs">Duration</p>
                     <p id="metaDuration" class="text-white font-semibold text-sm">—</p>
                 </div>
                 <div>
-                    <p class="text-gray-500 text-xs">Chunks (4 s)</p>
+                    <p class="text-gray-500 text-xs">Chunks</p>
                     <p id="metaChunks" class="text-accent-light font-semibold text-sm">—</p>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-xs">Subtitles</p>
+                    <p id="metaSubtitles" class="text-purple-400 font-semibold text-sm">—</p>
                 </div>
                 <div>
                     <p class="text-gray-500 text-xs">Est. Time</p>
@@ -67,9 +71,26 @@
 
         <section id="progress-section" class="hidden mt-8">
             <div class="rounded-xl bg-dark-500/50 border border-white/10 p-5">
-                <div class="flex items-center gap-3 mb-4">
+                <div class="flex items-center gap-3 mb-3">
                     <i class="fas fa-cog animate-spin text-accent-light"></i>
-                    <span class="text-white font-medium">Processing...</span>
+                    <span class="text-white font-medium" id="progressTitle">Processing...</span>
+                </div>
+                <div id="progressSteps" class="mb-4 space-y-1 text-xs">
+                    <div id="step-analyze" class="flex items-center gap-2 text-gray-500">
+                        <i class="fas fa-circle text-[6px]"></i> Analyzing media duration
+                    </div>
+                    <div id="step-extract" class="flex items-center gap-2 text-gray-500">
+                        <i class="fas fa-circle text-[6px]"></i> Extracting audio &amp; detecting silence
+                    </div>
+                    <div id="step-chunk" class="flex items-center gap-2 text-gray-500">
+                        <i class="fas fa-circle text-[6px]"></i> Splitting into smart chunks
+                    </div>
+                    <div id="step-transcribe" class="flex items-center gap-2 text-gray-500">
+                        <i class="fas fa-circle text-[6px]"></i> Transcribing chunks (Somali ASR)
+                    </div>
+                    <div id="step-done" class="flex items-center gap-2 text-gray-500">
+                        <i class="fas fa-circle text-[6px]"></i> Building subtitles
+                    </div>
                 </div>
                 <div class="flex justify-between text-xs text-gray-400 mb-2">
                     <span id="progressMessage">Initializing...</span>
@@ -128,7 +149,7 @@
 (function() {
     let selectedFile = null;
     let mediaDuration = null;
-    const CHUNK_SEC = 4;
+    const CHUNK_SEC = 10;
     const MAX_SIZE = 500 * 1024 * 1024;
     const uploadArea = document.getElementById('uploadArea');
     const fileInput = document.getElementById('fileInput');
@@ -148,6 +169,7 @@
     const mediaMeta = document.getElementById('mediaMeta');
     const metaDuration = document.getElementById('metaDuration');
     const metaChunks = document.getElementById('metaChunks');
+    const metaSubtitles = document.getElementById('metaSubtitles');
     const metaEst = document.getElementById('metaEst');
     const allowed = ['.wav','.mp3','.m4a','.flac','.ogg','.aac','.mp4','.mkv','.avi','.mov','.webm'];
     const videoExts = ['.mp4','.mkv','.avi','.mov','.webm'];
@@ -186,9 +208,10 @@
         mediaDuration = dur;
         if (!dur || !isFinite(dur)) { mediaMeta.classList.add('hidden'); return; }
         const chunks = Math.ceil(dur / CHUNK_SEC);
-        const estSec = chunks * 6 + 10;
+        const estSec = chunks * 8 + 15;
         metaDuration.textContent = formatDuration(dur);
-        metaChunks.textContent = chunks;
+        metaChunks.textContent = chunks + ' × ' + CHUNK_SEC + 's';
+        metaSubtitles.textContent = '~' + chunks;
         metaEst.textContent = '~' + formatDuration(estSec);
         mediaMeta.classList.remove('hidden');
     }
@@ -239,20 +262,57 @@
         xhr.send(fd);
     });
 
+    function highlightStep(msg, pct) {
+        const steps = [
+            { id: 'step-analyze',    keys: ['analyzing', 'duration', 'analyz'] },
+            { id: 'step-extract',    keys: ['extracting', 'audio', 'silence'] },
+            { id: 'step-chunk',      keys: ['splitting', 'chunk', 'split'] },
+            { id: 'step-transcribe', keys: ['transcrib'] },
+            { id: 'step-done',       keys: ['success', 'done', 'generated'] },
+        ];
+        const lower = (msg || '').toLowerCase();
+        let activeIdx = -1;
+        for (let i = steps.length - 1; i >= 0; i--) {
+            if (steps[i].keys.some(k => lower.includes(k))) { activeIdx = i; break; }
+        }
+        if (pct >= 100) activeIdx = steps.length - 1;
+        steps.forEach((st, idx) => {
+            const el = document.getElementById(st.id);
+            if (!el) return;
+            if (idx < activeIdx) {
+                el.className = 'flex items-center gap-2 text-green-400';
+                el.querySelector('i').className = 'fas fa-check-circle text-[10px]';
+            } else if (idx === activeIdx) {
+                el.className = 'flex items-center gap-2 text-accent-light font-medium';
+                el.querySelector('i').className = 'fas fa-spinner fa-spin text-[10px]';
+            } else {
+                el.className = 'flex items-center gap-2 text-gray-500';
+                el.querySelector('i').className = 'fas fa-circle text-[6px]';
+            }
+        });
+    }
+
     async function checkProgress() {
         try {
             const r = await fetch('/status'); const s = await r.json();
             setProgress(s.progress, s.message || 'Processing...');
+            highlightStep(s.message, s.progress);
             if (s.current_file) currentFile.textContent = s.current_file;
             if (s.is_processing) { setTimeout(checkProgress, 1000); return; }
             if (s.error) { showError(s.error); uploadBtn.disabled = false; return; }
-            if (s.job_id) { setProgress(100, 'Done! Opening editor...'); window.location.href = '/editor/' + s.job_id; return; }
-            if (s.output_file) { setProgress(100, 'Done! Downloading...'); window.location.href = '/download/' + encodeURIComponent(s.output_file); uploadBtn.disabled = false; }
+            if (s.job_id) { setProgress(100, 'Done! Opening editor...'); highlightStep('done', 100); window.location.href = '/editor/' + s.job_id; return; }
+            if (s.output_file) { setProgress(100, 'Done! Downloading...'); highlightStep('done', 100); window.location.href = '/download/' + encodeURIComponent(s.output_file); uploadBtn.disabled = false; }
         } catch(e) { setTimeout(checkProgress, 2000); }
     }
 
     function setProgress(pct, msg) { progressBar.style.width=pct+'%'; progressPercent.textContent=pct+'%'; progressMessage.textContent=msg; }
-    function showProgressUI() { hideStatus(); progressSection.classList.remove('hidden'); }
+    function resetSteps() {
+        ['step-analyze','step-extract','step-chunk','step-transcribe','step-done'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.className='flex items-center gap-2 text-gray-500'; el.querySelector('i').className='fas fa-circle text-[6px]'; }
+        });
+    }
+    function showProgressUI() { hideStatus(); resetSteps(); progressSection.classList.remove('hidden'); }
     function showError(msg) { hideStatus(); errorSection.classList.remove('hidden'); errorMessage.textContent=msg; uploadBtn.disabled=false; }
     function hideStatus() { progressSection.classList.add('hidden'); errorSection.classList.add('hidden'); }
     retryBtn.addEventListener('click', () => { resetFile(); });
