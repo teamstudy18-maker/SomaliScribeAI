@@ -105,6 +105,43 @@ with app.app_context():
         print(f"DATABASE_URI starts with: {_db_uri[:30]}...")
 
 
+@app.route('/setup-admin', methods=['GET', 'POST'])
+def setup_admin():
+    if User.query.filter_by(role='admin').first():
+        return redirect(url_for('auth.login'))
+    if request.method == 'POST':
+        email = (request.form.get('email') or '').strip().lower()
+        password = request.form.get('password') or ''
+        if not email or len(password) < 6:
+            flash('Email required and password must be 6+ characters.', 'error')
+            return redirect(url_for('setup_admin'))
+        existing = User.query.filter_by(email=email).first()
+        if existing:
+            existing.role = 'admin'
+            db.session.commit()
+        else:
+            user = User(email=email, role='admin')
+            user.set_password(password)
+            db.session.add(user)
+            db.session.commit()
+        flash(f'Admin account created. Log in now.', 'success')
+        return redirect(url_for('auth.login'))
+    return (
+        '<!DOCTYPE html><html><head><title>Setup Admin</title>'
+        '<script src="https://cdn.tailwindcss.com"></script></head>'
+        '<body class="bg-gray-900 text-gray-200 min-h-screen flex items-center justify-center">'
+        '<form method="post" class="bg-gray-800 p-8 rounded-2xl w-full max-w-md space-y-4">'
+        '<h1 class="text-2xl font-bold text-center">Create Admin Account</h1>'
+        '<input name="email" type="email" placeholder="Email" required'
+        ' class="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white">'
+        '<input name="password" type="password" placeholder="Password (6+ chars)" required minlength="6"'
+        ' class="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white">'
+        '<button type="submit"'
+        ' class="w-full py-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold">'
+        'Create Admin</button></form></body></html>'
+    )
+
+
 # --- Placeholder history (full implementation in phase 5)
 @app.route('/history')
 def history():
