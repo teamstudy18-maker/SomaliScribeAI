@@ -459,23 +459,21 @@ def download_burned(job_id):
     base_name = os.path.splitext(job.original_filename)[0]
     srt_path = None
     out_path = None
+    work_dir = None
     try:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.srt', delete=False, encoding='utf-8') as f:
+        # Use a short temp directory without spaces/colons for ffmpeg subtitles filter
+        work_dir = tempfile.mkdtemp(prefix='ssai')
+        srt_path = os.path.join(work_dir, 'subs.srt')
+        with open(srt_path, 'w', encoding='utf-8') as f:
             f.write(segments_to_srt(segments))
-            srt_path = f.name
-        out_fd, out_path = tempfile.mkstemp(suffix='.mp4')
-        os.close(out_fd)
-
-        # ffmpeg subtitles filter on Windows needs special escaping:
-        # backslashes -> /, then escape colons and single quotes for the filter
-        srt_esc = srt_path.replace('\\', '/').replace(':', '\\:').replace("'", "'\\''")
+        out_path = os.path.join(work_dir, 'out.mp4')
 
         if job.media_type == 'video':
             subprocess.run([
                 'ffmpeg', '-y', '-i', media_path,
-                '-vf', f"subtitles='{srt_esc}'",
+                '-vf', f'subtitles=subs.srt',
                 '-c:a', 'copy', out_path
-            ], check=True, capture_output=True, timeout=600)
+            ], check=True, capture_output=True, timeout=600, cwd=work_dir)
         else:
             max_end = max((s.get('end_sec') or s.get('end') or 0) for s in segments) if segments else 10
             duration = max(max_end + 2, 5)
@@ -483,11 +481,11 @@ def download_burned(job_id):
                 'ffmpeg', '-y',
                 '-f', 'lavfi', '-i', f'color=c=#0b0f19:s=1280x720:d={duration}',
                 '-i', media_path,
-                '-vf', f"subtitles='{srt_esc}':force_style='Fontsize=22,PrimaryColour=&Hffffff&,Alignment=2,MarginV=60'",
+                '-vf', "subtitles=subs.srt:force_style='Fontsize=22,PrimaryColour=&Hffffff&,Alignment=2,MarginV=60'",
                 '-c:v', 'libx264', '-preset', 'fast', '-tune', 'stillimage',
                 '-c:a', 'aac', '-b:a', '192k',
                 '-shortest', out_path
-            ], check=True, capture_output=True, timeout=600)
+            ], check=True, capture_output=True, timeout=600, cwd=work_dir)
 
         if os.path.isfile(out_path):
             with open(out_path, 'rb') as f:
@@ -512,14 +510,10 @@ def download_burned(job_id):
         flash(f'Burn-in failed: {e}', 'error')
         return redirect(url_for('editor', job_id=job_id))
     finally:
-        if srt_path and os.path.isfile(srt_path):
+        if work_dir and os.path.isdir(work_dir):
+            import shutil
             try:
-                os.remove(srt_path)
-            except OSError:
-                pass
-        if out_path and os.path.isfile(out_path):
-            try:
-                os.remove(out_path)
+                shutil.rmtree(work_dir, ignore_errors=True)
             except OSError:
                 pass
 
