@@ -151,7 +151,7 @@ class SomaliSubtitleGenerator:
             return "Error processing audio"
             
     def generate_subtitles(self, audio_path, output_file="subtitles.srt",
-                           chunk_duration=10.0, overlap=1.0, progress_cb=None):
+                           chunk_duration=4.0, overlap=1.0, progress_cb=None):
         """Generate subtitles using ffmpeg-based chunking.
 
         Workflow:

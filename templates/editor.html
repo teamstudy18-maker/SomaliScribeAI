@@ -9,6 +9,16 @@
     .seg-input:focus { border-color: #7c3aed; outline: none; box-shadow: 0 0 0 2px rgba(124,58,237,.25); }
     .toast { position: fixed; top: 80px; right: 24px; z-index: 100; animation: slideIn .3s ease; }
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    /* Hide native cues when NOT in fullscreen (custom overlay is used instead) */
+    video::cue { color: transparent; background: transparent; }
+    /* Show native cues ONLY in fullscreen */
+    video:fullscreen::cue,
+    video:-webkit-full-screen::cue {
+        color: white;
+        background: rgba(0,0,0,0.75);
+        font-size: 1.1em;
+        font-family: Inter, system-ui, sans-serif;
+    }
 </style>
 {% endblock %}
 {% block content %}
@@ -256,17 +266,20 @@
             });
             trackUrl = URL.createObjectURL(new Blob([vtt], {type: 'text/vtt'}));
             trackEl.src = trackUrl;
-            const fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-            trackEl.track.mode = fs ? 'showing' : 'hidden';
+            /* Always 'showing' — CSS ::cue rules handle visibility */
+            trackEl.track.mode = 'showing';
         };
 
         function onFsChange() {
             const fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-            trackEl.track.mode = fs ? 'showing' : 'hidden';
+            /* Hide custom overlay in fullscreen; native ::cue takes over via CSS */
             document.getElementById('liveCaption').style.display = fs ? 'none' : '';
+            /* Re-assert mode in case browser reset it */
+            trackEl.track.mode = 'showing';
         }
         document.addEventListener('fullscreenchange', onFsChange);
         document.addEventListener('webkitfullscreenchange', onFsChange);
+        trackEl.default = true;
         refreshTrack();
     }
 
