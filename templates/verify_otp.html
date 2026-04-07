@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Verify OTP – SomaliScribe AI{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-16">
+    <div class="card-dark rounded-2xl p-8">
+        <div class="text-center mb-6">
+            <div class="w-14 h-14 mx-auto mb-3 rounded-xl btn-accent flex items-center justify-center">
+                <i class="fas fa-shield-halved text-white text-2xl"></i>
+            </div>
+            {% if purpose == 'reset' %}
+            <h1 class="text-2xl font-bold text-white">Reset Password</h1>
+            <p class="text-gray-500 text-sm mt-1">Enter the code sent to <strong class="text-gray-300">{{ email }}</strong></p>
+            {% else %}
+            <h1 class="text-2xl font-bold text-white">Verify Your Email</h1>
+            <p class="text-gray-500 text-sm mt-1">Enter the code sent to <strong class="text-gray-300">{{ email }}</strong></p>
+            {% endif %}
+        </div>
+        <form method="post" action="{% if purpose == 'reset' %}{{ url_for('auth.verify_reset_otp') }}{% else %}{{ url_for('auth.verify_register_otp') }}{% endif %}">
+            <div class="mb-5">
+                <label for="otp" class="block text-sm font-medium text-gray-400 mb-1">Verification Code</label>
+                <input type="text" id="otp" name="otp" required maxlength="6" pattern="\d{6}"
+                       inputmode="numeric" autocomplete="one-time-code"
+                       class="w-full px-4 py-3 bg-dark-900 border border-white/10 rounded-xl text-white text-center text-2xl tracking-[0.5em] placeholder-gray-600 focus:ring-2 focus:ring-accent focus:border-accent outline-none transition"
+                       placeholder="------">
+            </div>
+            <button type="submit" class="w-full btn-accent text-white py-2.5 rounded-xl font-semibold transition glow-purple">Verify Code</button>
+        </form>
+        <div class="mt-5 text-center text-sm text-gray-500">
+            <p>Didn't receive the code?
+                <a href="{{ url_for('auth.resend_otp') }}" class="text-accent-light hover:underline">Resend</a>
+            </p>
+            <p class="mt-2 text-xs text-gray-600">The code expires in 10 minutes.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

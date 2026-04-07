@@ -23,6 +23,12 @@ if _db_uri.startswith('postgres://'):
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Gmail SMTP settings for OTP emails
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', 'teamstudy18@gmail.com')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', 'uefh lplx ognt tjol')
+app.config['MAIL_SMTP_SERVER'] = os.environ.get('MAIL_SMTP_SERVER', 'smtp.gmail.com')
+app.config['MAIL_SMTP_PORT'] = int(os.environ.get('MAIL_SMTP_PORT', 587))
+
 db.init_app(app)
 login_manager.init_app(app)
 login_manager.login_view = 'auth.login'
@@ -543,6 +549,46 @@ def export_subtitles(job_id):
         mimetype = 'text/vtt'
     buf = BytesIO(content.encode('utf-8'))
     return send_file(buf, as_attachment=True, download_name=filename, mimetype=mimetype)
+
+
+@app.route('/batch-export')
+def batch_export():
+    """Download all completed subtitles for the current user as a ZIP archive."""
+    from flask_login import current_user
+    from io import BytesIO
+    import zipfile
+    from utils.subtitle_formats import segments_to_srt, segments_to_vtt
+
+    if not current_user.is_authenticated:
+        return redirect(url_for('auth.login'))
+
+    fmt = request.args.get('format', 'srt').lower()
+    if fmt not in ('srt', 'vtt'):
+        fmt = 'srt'
+
+    jobs = Job.query.filter_by(user_id=current_user.id, status='done').all()
+    jobs_with_segments = [j for j in jobs if j.segments]
+
+    if not jobs_with_segments:
+        flash('No completed subtitles to export.', 'error')
+        return redirect(url_for('history'))
+
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for job in jobs_with_segments:
+            base_name = os.path.splitext(job.original_filename)[0]
+            if fmt == 'vtt':
+                content = segments_to_vtt(job.segments)
+                fname = f"{base_name}.vtt"
+            else:
+                content = segments_to_srt(job.segments)
+                fname = f"{base_name}.srt"
+            zf.writestr(fname, content.encode('utf-8'))
+
+    buf.seek(0)
+    return send_file(buf, as_attachment=True,
+                     download_name=f'subtitles_{fmt}.zip',
+                     mimetype='application/zip')
 
 
 @app.route('/clear')
