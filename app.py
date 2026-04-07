@@ -76,7 +76,20 @@ processing_status = {
     'message': '',
     'error': None,
     'job_id': None,
+    'started_at': None,
 }
+
+
+def is_actually_processing():
+    """Return True only if processing is active AND not stale (< 10 min)."""
+    if not processing_status['is_processing']:
+        return False
+    started = processing_status.get('started_at')
+    if started and (time.time() - started) > 600:
+        processing_status['is_processing'] = False
+        processing_status['started_at'] = None
+        return False
+    return True
 
 
 @app.cli.command()
@@ -273,6 +286,7 @@ def process_audio_file(relative_path, job_id=None):
     global processing_status
     try:
         processing_status['is_processing'] = True
+        processing_status['started_at'] = time.time()
         processing_status['current_file'] = os.path.basename(relative_path)
         processing_status['progress'] = 0
         processing_status['error'] = None
@@ -318,6 +332,7 @@ def process_audio_file(relative_path, job_id=None):
                 db.session.commit()
     finally:
         processing_status['is_processing'] = False
+        processing_status['started_at'] = None
 
 
 @app.route('/')
@@ -341,16 +356,17 @@ def upload_file():
         return jsonify({'error': 'File type not allowed. Use audio '
                         '(wav, mp3, m4a, flac, ogg, aac) or video '
                         '(mp4, mkv, avi, mov, webm).'}), 400
-    if processing_status['is_processing']:
-        return jsonify({'error': 'Another file is currently being processed. '
-                        'Please wait.'}), 429
-
     filename = secure_filename(file.filename)
     ext = filename.rsplit('.', 1)[1].lower()
     is_video = ext in ALLOWED_VIDEO
 
     from flask_login import current_user
     user_id = current_user.id if current_user.is_authenticated else None
+
+    active_job = Job.query.filter_by(status='processing', user_id=user_id).first()
+    if active_job:
+        return jsonify({'error': 'Another file is currently being processed. '
+                        'Please wait.'}), 429
     if user_id:
         user_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(user_id))
         os.makedirs(user_dir, exist_ok=True)
