@@ -11,4 +11,4 @@ Flask-Login>=0.6.0
 Flask-SQLAlchemy>=3.0.0
 psycopg2-binary>=2.9.0
 gunicorn>=21.2.0
-ffmpeg>=8.1.1
+
